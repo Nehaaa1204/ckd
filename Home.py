@@ -3,11 +3,14 @@ import pandas as pd
 import joblib
 from fpdf import FPDF
 from io import BytesIO
-
+import os
 # Load model
 import joblib
 
-model_path = r"C:\Users\hp\Desktop\chronic_kidney_prediction(_)\chronic_kidney_prediction\Home.py"
+model_path = os.path.join(os.path.dirname(__file__), "ckd_model.pkl")
+if not os.path.exists(model_path):
+    raise FileNotFoundError(f"Model file not found at {model_path}")
+
 model = joblib.load(model_path)
 
 # Set page config
