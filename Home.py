@@ -7,7 +7,7 @@ from io import BytesIO
 # Load model
 import joblib
 
-model_path = r"C:\Users\adish\OneDrive\Desktop\chronic_kidney_prediction\ckd_model.pkl"
+model_path = r"C:\Users\hp\Desktop\chronic_kidney_prediction(_)\chronic_kidney_prediction\Home.py"
 model = joblib.load(model_path)
 
 # Set page config
