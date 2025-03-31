@@ -1,17 +1,22 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import os
 from fpdf import FPDF
 from io import BytesIO
-import os
-# Load model
-import joblib
 
+# Load model and preprocessing files
 model_path = os.path.join(os.path.dirname(__file__), "ckd_model.pkl")
-if not os.path.exists(model_path):
-    raise FileNotFoundError(f"Model file not found at {model_path}")
+scaler_path = os.path.join(os.path.dirname(__file__), "scaler.pkl")
+features_path = os.path.join(os.path.dirname(__file__), "selected_features.pkl")
+
+if not os.path.exists(model_path) or not os.path.exists(scaler_path) or not os.path.exists(features_path):
+    st.error("Model, scaler, or feature selection file is missing!")
+    st.stop()
 
 model = joblib.load(model_path)
+scaler = joblib.load(scaler_path)
+selected_features = joblib.load(features_path)
 
 # Set page config
 st.set_page_config(page_title="CKD Predictor", layout="centered")
@@ -36,24 +41,10 @@ st.markdown("""
             margin: auto;
             margin-top: 30px;
         }
-        .centered {
-            display: flex;
-            justify-content: center;
-            margin-top: 30px;
-        }
-        .btn-start {
-            background-color: #2e8b57;
-            color: white;
-            padding: 15px 30px;
-            font-size: 18px;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-        }
     </style>
 """, unsafe_allow_html=True)
 
-# Session page routing
+# Page Routing
 if "page" not in st.session_state:
     st.session_state.page = "home"
 
@@ -84,7 +75,7 @@ if st.session_state.page == "home":
             <p style='text-align:center;'>
                 This tool helps predict CKD using a trained machine learning model.<br>
                 Fill in your medical test details to assess your risk and generate a report.
-
+            </p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -130,9 +121,37 @@ elif st.session_state.page == "predict":
         'bgr': bgr, 'pe': pe, 'sc': sc, 'bu': bu
     }])
 
+    # Encoding categorical features
+    encode_map = {
+        'rbc': {'normal': 0, 'abnormal': 1},
+        'pc': {'normal': 0, 'abnormal': 1},
+        'pcc': {'notpresent': 0, 'present': 1},
+        'ba': {'notpresent': 0, 'present': 1},
+        'dm': {'no': 0, 'yes': 1},
+        'cad': {'no': 0, 'yes': 1},
+        'appet': {'poor': 0, 'good': 1},
+        'ane': {'no': 0, 'yes': 1},
+        'htn': {'no': 0, 'yes': 1},
+        'pe': {'no': 0, 'yes': 1}
+    }
+
+    for col, mapping in encode_map.items():
+        input_data[col] = input_data[col].map(mapping)
+
+    # Ensure input follows the selected features
+    missing_features = set(selected_features) - set(input_data.columns)
+    if missing_features:
+        st.error(f"Missing features in input: {missing_features}")
+        st.stop()
+
+    # Reorder and scale input data
+    input_data = input_data[selected_features]
+    input_data = input_data.apply(pd.to_numeric, errors='coerce')
+    input_scaled = scaler.transform(input_data)
+
     if st.button("🔍 Predict CKD"):
-        prediction = model.predict(input_data)[0]
-        proba_ckd = model.predict_proba(input_data)[0][1]
+        prediction = model.predict(input_scaled)[0]
+        proba_ckd = model.predict_proba(input_scaled)[0][1]
 
         if prediction == 1:
             st.error("🟥 Prediction: CKD Detected")
